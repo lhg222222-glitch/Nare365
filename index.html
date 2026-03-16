@@ -315,19 +315,26 @@ function closeExit(){document.getElementById("exitPopup").classList.remove("on")
 function doExit(){stopDM();stopGCam();window.close();location.href="about:blank";}
 
 /* Back button → navigate or show exit */
-let screenStack=["splash"];
-function pushScreen(id){screenStack.push(id);show(id);history.pushState({scr:id},"");}
-window.addEventListener("popstate",function(){
-  const cur=document.querySelector(".scr.on");
-  if(!cur)return;const cid=cur.id;
-  if(cid==="home"){showExit();history.pushState({},"");return;}
-  if(cid==="reg"){cancelReg();history.pushState({},"");return;}
-  if(cid==="detectMode"){stopDM();show("home");history.pushState({},"");return;}
-  if(cid==="guardMode"){stopGCam();show("home");history.pushState({},"");return;}
-  if(cid==="apiSetup"||cid==="loading"){show("home");history.pushState({},"");return;}
-  showExit();history.pushState({},"");
-});
-history.pushState({},"");
+function showOrig(id){document.querySelectorAll(".scr").forEach(s=>s.classList.remove("on"));document.getElementById(id).classList.add("on");}
+(function initBack(){
+  window.addEventListener("popstate",function(e){
+    e.preventDefault();
+    const cur=document.querySelector(".scr.on");
+    if(!cur){history.pushState({p:1},"");return;}
+    const cid=cur.id;
+    if(cid==="home"){showExit();history.pushState({p:1},"");return;}
+    if(cid==="reg"){cancelReg();history.pushState({p:1},"");return;}
+    if(cid==="detectMode"){stopDM();showOrig("home");history.pushState({p:1},"");return;}
+    if(cid==="guardMode"){stopGCam();showOrig("home");history.pushState({p:1},"");return;}
+    if(cid==="apiSetup"){showOrig("home");history.pushState({p:1},"");return;}
+    if(cid==="loading"){history.pushState({p:1},"");return;}
+    showExit();history.pushState({p:1},"");
+  });
+  // Push multiple states to prevent immediate exit
+  history.pushState({p:1},"");
+  history.pushState({p:2},"");
+  history.pushState({p:3},"");
+})();
 
 /* Image resize for Gemini (auto compress) */
 function resizeImg(dataUrl,maxPx,q){return new Promise(r=>{const img=new Image();img.onload=()=>{
@@ -355,11 +362,14 @@ function mkThumb(src,x,y,w,h){const c=document.createElement("canvas");c.width=1
 c.getContext("2d").drawImage(src,x||0,y||0,w||src.videoWidth||src.width,h||src.videoHeight||src.height,0,0,120,120);
 return c.toDataURL("image/jpeg",.7);}
 
-/* Gemini API */
-async function gemini(parts){if(!apiKey)return{error:"API키 없음"};
+/* Gemini API with auto-retry for 429 */
+async function gemini(parts,retry){if(!apiKey)return{error:"API키 없음"};retry=retry||0;
 try{const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+apiKey,
 {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts}]})});
-if(!r.ok)return{error:"API "+r.status};addApi();
+if(r.status===429){if(retry<3){dbg("429 재시도 "+(retry+1)+"/3 (10초 대기)");
+await new Promise(ok=>setTimeout(ok,10000));return gemini(parts,retry+1);}
+return{error:"API 한도 초과. 1분 후 다시 시도하세요."};}
+if(!r.ok)return{error:"API 오류 "+r.status};addApi();
 const d=await r.json();return{text:d.candidates?.[0]?.content?.parts?.[0]?.text||""};}catch(e){return{error:e.message};}}
 function imgPart(url){return{inlineData:{mimeType:"image/jpeg",data:url.replace(/^data:image\/\w+;base64,/,"")}};}
 
@@ -373,7 +383,7 @@ function skipApi(){apiKey="";toast("키 없이 진행합니다");initModels();}
 async function initModels(){show("loading");const fill=document.getElementById("ldFill"),msg=document.getElementById("ldMsg"),retry=document.getElementById("ldRetry");
 retry.style.display="none";try{msg.textContent="🔍 사물 감지 AI 로딩...";fill.style.width="10%";
 await tf.setBackend("webgl");await tf.ready();dbg("TF:"+tf.getBackend());fill.style.width="30%";
-cocoM=await window.cocoSsd.load({base:"lite_mobilenet_v2"});dbg("COCO OK");fill.style.width="70%";
+cocoM=await window.cocoSsd.load({base:"mobilenet_v2"});dbg("COCO OK (mobilenet_v2)");fill.style.width="70%";
 const tc=document.createElement("canvas");tc.width=300;tc.height=300;tc.getContext("2d").fillRect(0,0,300,300);await cocoM.detect(tc);
 fill.style.width="100%";msg.textContent="✅ 준비 완료!";
 document.getElementById("apiSt").textContent=apiKey?"🔑 Gemini 연결":"⚠️ Gemini 미연결";
@@ -406,8 +416,8 @@ async function runDet(){if(!running)return;const video=document.getElementById("
 if(video.readyState<2){setTimeout(runDet,200);return;}
 const t0=performance.now(),off=document.getElementById("offscreen");
 off.width=video.videoWidth;off.height=video.videoHeight;off.getContext("2d").drawImage(video,0,0);
-let nd=[];try{const preds=await cocoM.detect(off,20,.25);
-preds.forEach(p=>{if(p.score<.25)return;const[x,y,w,h]=p.bbox;
+let nd=[];try{const preds=await cocoM.detect(off,20,.15);
+preds.forEach(p=>{if(p.score<.15)return;const[x,y,w,h]=p.bbox;
 const fc=document.createElement("canvas");fc.width=Math.max(4,Math.round(w));fc.height=Math.max(4,Math.round(h));
 fc.getContext("2d").drawImage(video,x,y,w,h,0,0,fc.width,fc.height);const feat=exFeat(fc);
 let matched=null,bestSc=0;entries.forEach(e=>{if(e.label!==p.class)return;const sc=mScore(feat,e.features);if(sc>bestSc&&sc>=MATCH_TH){bestSc=sc;matched=e;}});
@@ -489,7 +499,7 @@ const s=await startGCam();if(!s)return;
 toast("3초 후 촬영...");speak("3초 후 귀가 사진을 촬영합니다.");
 setTimeout(async()=>{const raw=captureG();if(!raw){toast("촬영 실패");return;}
 const afterImg=await resizeImg(raw,1024,.8);stopGCam();
-const log=document.getElementById("gLog");log.style.display="block";log.innerHTML='<span class="spinner"></span>Gemini AI 비교 분석 중...';
+const log=document.getElementById("gLog");log.style.display="block";log.innerHTML='<span class="spinner"></span>Gemini AI 비교 분석 중...<br><span style="font-size:11px;color:rgba(255,255,255,.3)">최대 30초 소요될 수 있습니다</span>';
 if(!apiKey){log.textContent="⚠️ API 키가 없어 비교할 수 없습니다.";speak("API 키가 필요합니다.");return;}
 const result=await gemini([imgPart(guardImg),imgPart(afterImg),
 {text:"첫 번째 사진은 외출 전, 두 번째 사진은 귀가 후입니다. 두 사진을 비교해서 사물의 변화, 없어진 것, 추가된 것, 위치 변경을 한국어로 구체적으로 설명하세요. 변화 없으면 '변화 없음'이라 하세요. 시력 장애인에게 읽어줄 내용이니 명확하게 쓰세요."}]);
