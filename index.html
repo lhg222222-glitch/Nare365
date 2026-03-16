@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#08080d">
+<title>나래365 기억해줘</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;background:#08080d;font-family:'Noto Sans KR',sans-serif;color:#fff;overflow:hidden}
+button{cursor:pointer;font-family:inherit;border:none;background:none;color:#fff}
+button:active{transform:scale(.97)!important}input:focus{outline:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes glow{0%,100%{opacity:.3;transform:translate(-50%,-50%) scale(1)}50%{opacity:.6;transform:translate(-50%,-50%) scale(1.06)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+#app{width:100%;max-width:480px;margin:0 auto;height:100vh;height:100dvh;position:relative;overflow:hidden}
+.scr{display:none;flex-direction:column;width:100%;height:100%;position:absolute;top:0;left:0;z-index:1}.scr.on{display:flex}
+#toast{display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,212,170,.95);
+  border-radius:16px;padding:12px 24px;font-size:15px;font-weight:700;z-index:9999;animation:fadeUp .25s ease;
+  max-width:88%;text-align:center;backdrop-filter:blur(10px);box-shadow:0 4px 20px rgba(0,212,170,.3)}
+#dbg{position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,.85);padding:2px 8px;font-size:9px;font-family:monospace;color:#0f0;z-index:9998}
+.spinner{width:20px;height:20px;border:2px solid rgba(255,255,255,.15);border-top-color:#FFB800;border-radius:50%;animation:spin .5s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px}
+
+/* ── EXIT POPUP ── */
+.exit-bg{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:10000;
+  align-items:center;justify-content:center;backdrop-filter:blur(6px)}.exit-bg.on{display:flex}
+.exit-box{background:linear-gradient(160deg,#141420,#1a1a2e);border:1px solid rgba(255,255,255,.06);
+  border-radius:24px;padding:32px 24px;width:85%;max-width:300px;text-align:center;animation:fadeUp .2s ease}
+.exit-btns{display:flex;gap:10px;margin-top:20px}
+.exit-btns button{flex:1;padding:14px;border-radius:14px;font-size:16px;font-weight:700}
+.exit-btns .stay{background:linear-gradient(135deg,#00D4AA,#009977);box-shadow:0 4px 16px rgba(0,212,170,.25)}
+.exit-btns .quit{background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.08)}
+
+/* ── SPLASH ── */
+#splash{align-items:center;justify-content:center;gap:6px;padding:32px;
+  background:radial-gradient(ellipse at 50% 30%,#0d1a15 0%,#08080d 70%)}
+.sp-glow{position:absolute;top:25%;left:50%;width:300px;height:300px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,212,170,.1) 0%,transparent 70%);
+  transform:translate(-50%,-50%);animation:glow 3.5s ease-in-out infinite;pointer-events:none}
+.sp-logo{z-index:1;text-align:center}.sp-logo .t1{font-size:44px;font-weight:900;letter-spacing:-1px}
+.sp-logo .t2{font-size:24px;font-weight:700;color:#00D4AA;margin-top:-4px}
+.sp-btn{margin-top:20px;background:linear-gradient(135deg,#00D4AA,#009977);border-radius:60px;
+  padding:18px 56px;font-size:18px;font-weight:700;z-index:1;box-shadow:0 6px 28px rgba(0,212,170,.3);
+  letter-spacing:.5px}
+
+/* ── API SETUP ── */
+#apiSetup{background:#08080d}
+.api-scroll{flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:12px;align-items:center}
+.api-guide{width:100%;background:rgba(0,212,170,.04);border:1px solid rgba(0,212,170,.12);border-radius:16px;padding:18px}
+.api-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+.api-num{background:#00D4AA;color:#000;min-width:26px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0}
+.api-txt{font-size:13px;color:rgba(255,255,255,.65);line-height:1.7}
+.api-input{width:100%;padding:16px;border-radius:14px;border:2px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);color:#fff;font-size:15px;font-family:inherit;transition:border-color .2s}
+.api-input:focus{border-color:rgba(0,212,170,.4)}
+.api-btn{background:linear-gradient(135deg,#00D4AA,#009977);border-radius:60px;padding:16px;font-size:17px;font-weight:700;width:100%;box-shadow:0 4px 16px rgba(0,212,170,.2)}
+
+/* ── LOADING ── */
+#loading{align-items:center;justify-content:center;gap:8px;padding:28px;background:#08080d}
+.ld-bar{width:80%;height:4px;background:rgba(255,255,255,.04);border-radius:2px;overflow:hidden;margin-top:12px}
+.ld-bar .fill{height:100%;background:linear-gradient(90deg,#00D4AA,#00AAFF);border-radius:2px;transition:width .4s}
+.ld-msg{font-size:14px;color:rgba(255,255,255,.4);text-align:center}
+.ld-retry{margin-top:14px;background:linear-gradient(135deg,#00D4AA,#009977);border-radius:60px;padding:14px 40px;font-size:15px;font-weight:700;display:none}
+
+/* ── HOME ── */
+#home{background:#08080d}
+.h-hd{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;flex-shrink:0}
+.h-hd .logo{font-size:18px;font-weight:900;letter-spacing:-.5px}
+.h-hd .logo span{color:#00D4AA}
+.h-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px}
+
+/* ── MODE CARDS (modern glassmorphism) ── */
+.mode-card{width:100%;border-radius:20px;padding:24px 22px;position:relative;overflow:hidden;
+  backdrop-filter:blur(12px);transition:transform .15s}
+.mode-card::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;border-radius:20px;z-index:0}
+.mode-card>*{position:relative;z-index:1}
+.mode-card .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.mode-card .emoji{font-size:36px}
+.mode-card .badge{font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.5px}
+.mode-card .card-title{font-size:22px;font-weight:900;letter-spacing:-.5px;margin-bottom:6px}
+.mode-card .card-desc{font-size:13px;line-height:1.7;opacity:.55}
+.mode-card .arrow{position:absolute;right:22px;bottom:22px;font-size:20px;opacity:.3}
+
+.mode-card.mem{background:linear-gradient(145deg,rgba(0,212,170,.1),rgba(0,100,80,.05));
+  border:1px solid rgba(0,212,170,.15)}
+.mode-card.mem::before{background:linear-gradient(135deg,rgba(0,212,170,.06),transparent 60%)}
+.mode-card.mem .badge{background:rgba(0,212,170,.15);color:#00D4AA}
+
+.mode-card.guard{background:linear-gradient(145deg,rgba(255,184,0,.1),rgba(255,120,0,.05));
+  border:1px solid rgba(255,184,0,.15)}
+.mode-card.guard::before{background:linear-gradient(135deg,rgba(255,184,0,.06),transparent 60%)}
+.mode-card.guard .badge{background:rgba(255,184,0,.15);color:#FFB800}
+
+.h-footer{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:8px;padding:0 4px}
+.h-footer>*{font-size:11px;color:rgba(255,255,255,.2)}
+
+/* ── HOME BUTTON (visible green pill) ── */
+.home-pill{display:flex;align-items:center;gap:6px;padding:10px 20px;border-radius:50px;
+  background:linear-gradient(135deg,#00D4AA,#009977);font-size:14px;font-weight:700;
+  box-shadow:0 2px 12px rgba(0,212,170,.25)}
+
+/* ── DETECT ── */
+#detectMode,#guardMode{background:#08080d}
+.dm-hd{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;flex-shrink:0}
+.dm-body,.g-body{flex:1;overflow-y:auto;padding:0 14px 100px}
+.cam-box{position:relative;width:100%;aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:#111;margin:6px 0}
+.cam-box video{width:100%;height:100%;object-fit:fill}
+.cam-box canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.cam-box .tap{position:absolute;top:0;left:0;width:100%;height:100%;z-index:3}
+.cam-stat{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);border-radius:12px;
+  padding:5px 12px;font-size:11px;font-weight:600;z-index:4;display:flex;align-items:center;gap:5px;
+  backdrop-filter:blur(6px)}
+.cam-stat .dot{color:#FFB800;font-size:7px;animation:pulse 1s infinite}
+.cam-match{position:absolute;bottom:8px;left:8px;right:8px;z-index:4;display:none;
+  background:rgba(0,212,170,.93);border-radius:12px;padding:12px;text-align:center;
+  font-size:18px;font-weight:900;color:#000;backdrop-filter:blur(6px)}
+.act-btn{width:100%;padding:14px;border-radius:14px;font-size:15px;font-weight:700;margin-top:6px}
+.act-btn.go{background:linear-gradient(135deg,#00D4AA,#009977);box-shadow:0 4px 16px rgba(0,212,170,.2)}
+.act-btn.stop{background:linear-gradient(135deg,#FF3333,#CC0000);box-shadow:0 4px 16px rgba(255,0,0,.15)}
+.sec-t{font-size:14px;font-weight:700;margin:12px 0 6px}
+.p-list{display:flex;flex-direction:column;gap:5px}
+.p-btn{display:flex;align-items:center;gap:10px;width:100%;padding:12px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02);text-align:left;transition:background .15s}
+.p-btn:hover{background:rgba(255,255,255,.04)}
+.p-btn .ava{width:44px;height:44px;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.04);flex-shrink:0}
+.p-btn .ava img{width:100%;height:100%;object-fit:cover}
+.p-btn .nm{font-size:14px;font-weight:700}.p-btn .sub{font-size:10px;color:rgba(255,255,255,.25);margin-top:1px}
+
+/* ── REG ── */
+#reg{background:#08080d;z-index:10}
+.r-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.r-prev{display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;
+  background:rgba(255,184,0,.06);border:1px solid rgba(255,184,0,.12)}
+.r-prev img{width:64px;height:64px;border-radius:12px;object-fit:cover;border:2px solid #FFB800}
+.r-ai{padding:12px;border-radius:12px;background:rgba(123,97,255,.06);border:1px solid rgba(123,97,255,.1);
+  font-size:12px;color:rgba(255,255,255,.55);line-height:1.7}
+.r-input{width:100%;padding:16px;border-radius:14px;border:2px solid rgba(255,255,255,.06);
+  background:rgba(255,255,255,.03);color:#fff;font-size:18px;font-weight:600;font-family:inherit;transition:border-color .2s}
+.r-input:focus{border-color:rgba(255,184,0,.4)}
+.r-save{flex:1;padding:16px;border-radius:14px;font-size:16px;font-weight:700;background:#FFB800;color:#000;
+  box-shadow:0 4px 16px rgba(255,184,0,.2)}
+.r-del{padding:16px;border-radius:14px;background:rgba(255,50,50,.08);color:#ff5555;font-size:14px;font-weight:700;display:none}
+
+/* ── GUARD ── */
+.g-status{padding:14px;border-radius:14px;background:rgba(255,184,0,.04);border:1px solid rgba(255,184,0,.1);
+  font-size:13px;line-height:1.8}
+.g-btns{display:flex;gap:8px;margin-top:8px}
+.g-btn{flex:1;padding:14px 8px;border-radius:14px;font-size:13px;font-weight:700;text-align:center}
+.g-btn.save{background:linear-gradient(135deg,#FFB800,#FF8800);box-shadow:0 4px 16px rgba(255,184,0,.15)}
+.g-btn.compare{background:linear-gradient(135deg,#7B61FF,#5B41DF);box-shadow:0 4px 16px rgba(123,97,255,.15)}
+.g-btn .big-icon{font-size:22px;display:block;margin-bottom:2px}
+.g-log{padding:14px;border-radius:14px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);
+  max-height:220px;overflow-y:auto;font-size:13px;line-height:1.8;display:none;margin-top:8px}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="toast"></div><div id="dbg">v19</div>
+
+<!-- EXIT POPUP -->
+<div class="exit-bg" id="exitPopup">
+<div class="exit-box">
+<div style="font-size:40px;margin-bottom:8px">👋</div>
+<div style="font-size:20px;font-weight:900">앱을 종료할까요?</div>
+<div style="font-size:13px;color:rgba(255,255,255,.35);margin-top:8px;line-height:1.6">등록된 데이터는 안전하게 저장됩니다</div>
+<div class="exit-btns"><button class="stay" onclick="closeExit()">계속 사용</button><button class="quit" onclick="doExit()">종료</button></div>
+</div></div>
+
+<!-- SPLASH -->
+<div id="splash" class="scr on">
+<div class="sp-glow"></div>
+<div class="sp-logo"><div class="t1">나래365</div><div class="t2">기억해줘</div></div>
+<div style="font-size:13px;color:rgba(255,255,255,.35);z-index:1;text-align:center;line-height:1.8;margin-top:4px">사물·동물·사람을 기억하고<br>365일 내 공간을 지켜주는 AI</div>
+<div style="font-size:11px;color:#FFB800;font-weight:700;z-index:1;margin-top:2px">🔊 시력 장애인 음성 지원</div>
+<button class="sp-btn" onclick="goApiSetup()">시작하기</button>
+<div style="font-size:9px;color:rgba(255,255,255,.1);z-index:1;margin-top:10px">v19 · COCO-SSD + Gemini AI + 시각매칭</div>
+</div>
+
+<!-- API SETUP -->
+<div id="apiSetup" class="scr">
+<div class="api-scroll">
+<div style="font-size:22px;font-weight:900">🔑 Gemini API 키 설정</div>
+<div style="font-size:12px;color:rgba(255,255,255,.35);text-align:center;line-height:1.7">사물 정밀 분석에 사용 · 무료 250회/일<br>키는 이 기기에만 저장됩니다</div>
+
+<div class="api-guide">
+<div style="font-size:15px;font-weight:700;margin-bottom:12px;color:#00D4AA">📋 API 키 발급 방법 (1분)</div>
+<div class="api-step"><div class="api-num">1</div><div class="api-txt">아래 <b style="color:#00AAFF">파란 링크</b>를 터치해<br><b>Google AI Studio</b> 접속</div></div>
+<div class="api-step"><div class="api-num">2</div><div class="api-txt"><b>Google 계정</b> 로그인<br>(안드로이드폰은 이미 로그인 상태)</div></div>
+<div class="api-step"><div class="api-num">3</div><div class="api-txt">오른쪽 위 <b style="color:#FFB800">「API 키 만들기」</b> 터치</div></div>
+<div class="api-step"><div class="api-num">4</div><div class="api-txt"><b>「새 프로젝트에서 API 키 만들기」</b> 선택</div></div>
+<div class="api-step" style="margin-bottom:0"><div class="api-num">5</div><div class="api-txt">생성된 <b style="color:#FFB800">AIza...</b> 키를 복사 → 아래에 붙여넣기</div></div>
+</div>
+
+<div style="font-size:14px;color:#00AAFF;cursor:pointer;text-decoration:underline;font-weight:700;padding:8px" onclick="window.open('https://aistudio.google.com/apikey','_blank')">👉 Google AI Studio 열기</div>
+<div style="width:100%;background:rgba(255,184,0,.04);border:1px solid rgba(255,184,0,.1);border-radius:12px;padding:10px;font-size:11px;color:rgba(255,255,255,.3);line-height:1.6;text-align:center">⚠️ API 키는 본인만 사용 · 타인 공유시 무료 한도 소진</div>
+<input type="text" class="api-input" id="apiKeyInput" placeholder="AIza... (여기에 API 키 붙여넣기)">
+<button class="api-btn" onclick="saveApiKey()">✓ 저장 후 시작</button>
+<div style="font-size:11px;color:rgba(255,255,255,.18);cursor:pointer" onclick="skipApi()">키 없이 진행 (Gemini 분석 불가)</div>
+</div></div>
+
+<!-- LOADING -->
+<div id="loading" class="scr">
+<div style="font-size:26px;font-weight:900">나래365</div>
+<div class="ld-bar"><div class="fill" id="ldFill"></div></div>
+<div class="ld-msg" id="ldMsg">AI 로딩...</div>
+<div id="ldSub" style="font-size:10px;color:rgba(255,255,255,.15)"></div>
+<button class="ld-retry" id="ldRetry" onclick="initModels()">🔄 다시 시도</button>
+</div>
+
+<!-- HOME -->
+<div id="home" class="scr">
+<div class="h-hd"><div class="logo">나래365 <span>기억해줘</span></div><div id="apiSt" style="font-size:10px;color:rgba(255,255,255,.2)"></div></div>
+<div class="h-body">
+
+<button class="mode-card mem" onclick="openDM()">
+<div class="top-row"><div class="emoji">📸</div><div class="badge">AI 사물인식</div></div>
+<div class="card-title">나를기억해</div>
+<div class="card-desc">카메라 → 사물 터치 → Gemini 분석 → 이름 등록<br>다음에 비추면 🔊 이름을 말합니다</div>
+<div class="arrow">→</div>
+</button>
+
+<button class="mode-card guard" onclick="openGM()">
+<div class="top-row"><div class="emoji">🏠</div><div class="badge">공간 감시</div></div>
+<div class="card-title">365 지킴이</div>
+<div class="card-desc">외출 전 촬영 → 귀가 후 비교<br>Gemini가 변경사항을 🔊 음성으로 안내</div>
+<div class="arrow">→</div>
+</button>
+
+<div class="h-footer">
+<div style="cursor:pointer;text-decoration:underline" onclick="goApiSetup()">🔑 API 키</div>
+<div id="apiCnt"></div>
+<div style="cursor:pointer;text-decoration:underline" onclick="showExit()">종료</div>
+</div>
+</div></div>
+
+<!-- DETECT MODE -->
+<div id="detectMode" class="scr">
+<div class="dm-hd"><button class="home-pill" onclick="stopDM();show('home')">🏠 홈</button>
+<div style="font-size:16px;font-weight:700">나를기억해</div><div id="dmCnt" style="font-size:11px;color:rgba(255,255,255,.25)"></div></div>
+<div class="dm-body">
+<div class="cam-box"><video id="camV" autoplay playsinline muted></video><canvas id="camC"></canvas>
+<div class="tap" id="camTap"></div>
+<div class="cam-stat" id="camStat" style="display:none"><span class="dot">●</span><span id="camStatT">0</span></div>
+<div class="cam-match" id="camMatch"></div></div>
+<button class="act-btn go" id="dmBtn" onclick="toggleDM()">📹 카메라 시작</button>
+<div style="font-size:10px;color:rgba(255,255,255,.15);text-align:center;margin-top:3px">노란 박스 터치 → Gemini 분석 → 이름 등록</div>
+<div class="sec-t">📋 등록 (<span id="dmTotal">0</span>/50)</div>
+<div class="p-list" id="dmList"></div>
+</div></div>
+
+<!-- REGISTER -->
+<div id="reg" class="scr">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;flex-shrink:0">
+<button style="color:#00D4AA;font-size:14px;font-weight:700" onclick="cancelReg()">← 취소</button>
+<div style="background:#FFB800;color:#000;border-radius:12px;padding:5px 16px;font-size:13px;font-weight:700">등록</div></div>
+<div class="r-body">
+<div class="r-prev"><img id="rImg" src="" alt=""><div><div style="color:#FFB800;font-weight:700;font-size:16px" id="rLabel"></div>
+<div style="color:rgba(255,255,255,.3);font-size:11px" id="rSub"></div></div></div>
+<div class="r-ai" id="rAi" style="display:none"></div>
+<input type="text" class="r-input" id="rName" placeholder="이름 입력 (예: 아빠 리모컨)" oninput="updSave()">
+<div style="display:flex;gap:8px"><button class="r-del" id="rDel" onclick="delEntry()">🗑 삭제</button>
+<button class="r-save" id="rSave" onclick="saveReg()">✓ 등록하기</button></div>
+</div></div>
+
+<!-- GUARD -->
+<div id="guardMode" class="scr">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;flex-shrink:0">
+<button class="home-pill" onclick="stopGCam();show('home')">🏠 홈</button>
+<div style="font-size:16px;font-weight:700">365 지킴이</div><div></div></div>
+<div class="g-body">
+<div class="g-status" id="gStat">"외출 전 촬영"으로 시작하세요.</div>
+<div class="cam-box" id="gCamBox" style="display:none"><video id="gV" autoplay playsinline muted></video><canvas id="gC"></canvas></div>
+<div class="g-btns"><button class="g-btn save" onclick="gSave()"><span class="big-icon">📸</span>외출 전 촬영</button>
+<button class="g-btn compare" onclick="gCompare()"><span class="big-icon">🔍</span>귀가 후 비교</button></div>
+<div id="gSaved" style="display:none;margin-top:8px">
+<div style="font-size:12px;color:rgba(255,255,255,.25);margin-bottom:4px">📷 외출 전 저장 사진:</div>
+<img id="gSavedImg" src="" style="width:100%;border-radius:12px;border:1px solid rgba(255,184,0,.15)">
+<button style="margin-top:6px;font-size:11px;color:#ff5555;text-decoration:underline" onclick="gDelete()">🗑 삭제</button>
+</div>
+<div class="g-log" id="gLog"></div>
+</div></div>
+</div>
+<canvas id="offscreen" style="display:none"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script>
+const MAX_E=50,MATCH_TH=.80,HB=12;
+const KO={person:"사람",cat:"고양이",dog:"강아지",bird:"새",horse:"말",cow:"소",bear:"곰",bottle:"병",cup:"컵",fork:"포크",knife:"칼",spoon:"숟가락",bowl:"그릇",banana:"바나나",apple:"사과",chair:"의자",couch:"소파",bed:"침대",laptop:"노트북",mouse:"마우스",remote:"리모컨",keyboard:"키보드","cell phone":"핸드폰",refrigerator:"냉장고",book:"책",clock:"시계",vase:"꽃병",scissors:"가위","teddy bear":"곰인형","potted plant":"화분",tv:"TV","dining table":"테이블",backpack:"가방",umbrella:"우산",handbag:"핸드백",bicycle:"자전거",car:"자동차",truck:"트럭",motorcycle:"오토바이",bus:"버스",boat:"보트",pizza:"피자",cake:"케이크",sandwich:"샌드위치"};
+const ko=c=>KO[c]||c;
+let cocoM=null,apiKey="",entries=[],guardImg=null,camStream=null,running=false,gStream=null,dets=[];
+let capData=null,editIdx=-1,lastSp={n:"",t:0},apiUsed=0,apiDate="";
+
+function dbg(m){document.getElementById("dbg").textContent="v19: "+m;}
+function toast(m){const e=document.getElementById("toast");e.textContent=m;e.style.display="block";setTimeout(()=>e.style.display="none",2800);}
+function show(id){document.querySelectorAll(".scr").forEach(s=>s.classList.remove("on"));document.getElementById(id).classList.add("on");}
+function speak(t){if(!window.speechSynthesis)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="ko-KR";u.rate=1;u.pitch=1;window.speechSynthesis.speak(u);}
+
+/* Storage */
+try{entries=JSON.parse(localStorage.getItem("n365e"))||[];}catch{entries=[];}
+try{guardImg=localStorage.getItem("n365g")||null;}catch{}
+try{apiKey=localStorage.getItem("n365k")||"";}catch{}
+try{const ac=JSON.parse(localStorage.getItem("n365ac")||"{}");apiUsed=ac.cnt||0;apiDate=ac.date||"";}catch{}
+function svE(){try{localStorage.setItem("n365e",JSON.stringify(entries));}catch{}}
+function svG(){try{if(guardImg)localStorage.setItem("n365g",guardImg);else localStorage.removeItem("n365g");}catch{}}
+function addApi(){const d=new Date().toISOString().slice(0,10);if(apiDate!==d){apiUsed=0;apiDate=d;}apiUsed++;try{localStorage.setItem("n365ac",JSON.stringify({cnt:apiUsed,date:apiDate}));}catch{}updCnt();}
+function updCnt(){const d=new Date().toISOString().slice(0,10);if(apiDate!==d)apiUsed=0;document.getElementById("apiCnt").textContent=apiKey?"API: "+apiUsed+"/250":"";}
+
+/* Exit handling */
+function showExit(){document.getElementById("exitPopup").classList.add("on");}
+function closeExit(){document.getElementById("exitPopup").classList.remove("on");}
+function doExit(){stopDM();stopGCam();window.close();location.href="about:blank";}
+
+/* Back button → navigate or show exit */
+let screenStack=["splash"];
+function pushScreen(id){screenStack.push(id);show(id);history.pushState({scr:id},"");}
+window.addEventListener("popstate",function(){
+  const cur=document.querySelector(".scr.on");
+  if(!cur)return;const cid=cur.id;
+  if(cid==="home"){showExit();history.pushState({},"");return;}
+  if(cid==="reg"){cancelReg();history.pushState({},"");return;}
+  if(cid==="detectMode"){stopDM();show("home");history.pushState({},"");return;}
+  if(cid==="guardMode"){stopGCam();show("home");history.pushState({},"");return;}
+  if(cid==="apiSetup"||cid==="loading"){show("home");history.pushState({},"");return;}
+  showExit();history.pushState({},"");
+});
+history.pushState({},"");
+
+/* Image resize for Gemini (auto compress) */
+function resizeImg(dataUrl,maxPx,q){return new Promise(r=>{const img=new Image();img.onload=()=>{
+const s=Math.min(maxPx/img.width,maxPx/img.height,1);const c=document.createElement("canvas");
+c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+r(c.toDataURL("image/jpeg",q||.8));};img.src=dataUrl;});}
+
+/* Visual features */
+function exFeat(canvas){const ctx=canvas.getContext("2d"),w=canvas.width,h=canvas.height;if(w<2||h<2)return null;
+const d=ctx.getImageData(0,0,w,h).data,rH=new Float32Array(HB),gH=new Float32Array(HB),bH=new Float32Array(HB),lH=new Float32Array(HB);let cnt=0;
+for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],l=.299*r+.587*g+.114*b;
+rH[Math.min(Math.floor(r/256*HB),HB-1)]++;gH[Math.min(Math.floor(g/256*HB),HB-1)]++;bH[Math.min(Math.floor(b/256*HB),HB-1)]++;lH[Math.min(Math.floor(l/256*HB),HB-1)]++;cnt++;}
+if(cnt>0)for(let i=0;i<HB;i++){rH[i]/=cnt;gH[i]/=cnt;bH[i]/=cnt;lH[i]/=cnt;}
+const hist=[...rH,...gH,...bH,...lH],G=6,sp=[];
+for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){const cx=Math.round(gx*w/G),cy=Math.round(gy*h/G),
+cw=Math.max(1,Math.round(w/G)),ch=Math.max(1,Math.round(h/G)),
+sx=Math.min(cx,w-1),sy=Math.min(cy,h-1),sw=Math.min(cw,w-sx),sh=Math.min(ch,h-sy);
+if(sw<1||sh<1){sp.push(0,0,0);continue;}
+const sd=ctx.getImageData(sx,sy,sw,sh).data;let rs=0,gs=0,bs=0,c=0;
+for(let i=0;i<sd.length;i+=4){rs+=sd[i];gs+=sd[i+1];bs+=sd[i+2];c++;}
+sp.push(c?rs/c/255:0,c?gs/c/255:0,c?bs/c/255:0);}return{hist,sp};}
+function cosS(a,b){let d=0,m1=0,m2=0;for(let i=0;i<a.length;i++){d+=a[i]*b[i];m1+=a[i]*a[i];m2+=b[i]*b[i];}m1=Math.sqrt(m1);m2=Math.sqrt(m2);return(m1&&m2)?d/(m1*m2):0;}
+function mScore(f1,f2){if(!f1||!f2)return 0;return cosS(f1.hist,f2.hist)*.3+cosS(f1.sp,f2.sp)*.7;}
+function mkThumb(src,x,y,w,h){const c=document.createElement("canvas");c.width=120;c.height=120;
+c.getContext("2d").drawImage(src,x||0,y||0,w||src.videoWidth||src.width,h||src.videoHeight||src.height,0,0,120,120);
+return c.toDataURL("image/jpeg",.7);}
+
+/* Gemini API */
+async function gemini(parts){if(!apiKey)return{error:"API키 없음"};
+try{const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+apiKey,
+{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts}]})});
+if(!r.ok)return{error:"API "+r.status};addApi();
+const d=await r.json();return{text:d.candidates?.[0]?.content?.parts?.[0]?.text||""};}catch(e){return{error:e.message};}}
+function imgPart(url){return{inlineData:{mimeType:"image/jpeg",data:url.replace(/^data:image\/\w+;base64,/,"")}};}
+
+/* API Key */
+function goApiSetup(){show("apiSetup");document.getElementById("apiKeyInput").value=apiKey;}
+function saveApiKey(){const k=document.getElementById("apiKeyInput").value.trim();if(!k){toast("API 키를 입력하세요");return;}
+apiKey=k;try{localStorage.setItem("n365k",k);}catch{}toast("✓ API 키 저장!");initModels();}
+function skipApi(){apiKey="";toast("키 없이 진행합니다");initModels();}
+
+/* Init */
+async function initModels(){show("loading");const fill=document.getElementById("ldFill"),msg=document.getElementById("ldMsg"),retry=document.getElementById("ldRetry");
+retry.style.display="none";try{msg.textContent="🔍 사물 감지 AI 로딩...";fill.style.width="10%";
+await tf.setBackend("webgl");await tf.ready();dbg("TF:"+tf.getBackend());fill.style.width="30%";
+cocoM=await window.cocoSsd.load({base:"lite_mobilenet_v2"});dbg("COCO OK");fill.style.width="70%";
+const tc=document.createElement("canvas");tc.width=300;tc.height=300;tc.getContext("2d").fillRect(0,0,300,300);await cocoM.detect(tc);
+fill.style.width="100%";msg.textContent="✅ 준비 완료!";
+document.getElementById("apiSt").textContent=apiKey?"🔑 Gemini 연결":"⚠️ Gemini 미연결";
+updCnt();speak("나래365 기억해줘, 준비 완료!");setTimeout(()=>show("home"),600);
+}catch(e){dbg("에러:"+e.message);msg.textContent="❌ "+e.message;retry.style.display="block";}}
+
+/* Detect Mode */
+function openDM(){show("detectMode");renderList();}
+function renderList(){const list=document.getElementById("dmList");document.getElementById("dmCnt").textContent=entries.length+"/"+MAX_E;
+document.getElementById("dmTotal").textContent=entries.length;list.innerHTML="";
+if(!entries.length){list.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.15);font-size:12px;padding:16px">아직 등록된 대상이 없습니다</div>';return;}
+entries.forEach((e,i)=>{const b=document.createElement("button");b.className="p-btn";b.onclick=()=>editEntry(i);
+b.innerHTML='<div class="ava">'+(e.thumb?'<img src="'+e.thumb+'">':'📷')+'</div><div style="flex:1"><div class="nm">'+e.name+'</div><div class="sub">'+ko(e.label||'')+(e.aiDesc?' · '+e.aiDesc.slice(0,20):'')+'</div></div>';list.appendChild(b);});}
+
+function toggleDM(){if(running)stopDM();else startDM();}
+async function startDM(){try{
+camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:640},height:{ideal:480}},audio:false});
+const v=document.getElementById("camV");v.srcObject=camStream;await v.play();
+dbg("cam:"+v.videoWidth+"x"+v.videoHeight);running=true;dets=[];
+document.getElementById("camStat").style.display="flex";
+document.getElementById("dmBtn").textContent="■ 중지";document.getElementById("dmBtn").className="act-btn stop";
+speak("카메라 시작. 노란 박스를 터치하세요.");runDet();}catch(e){toast("카메라 접근 실패");}}
+
+function stopDM(){running=false;if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+document.getElementById("camStat").style.display="none";document.getElementById("camMatch").style.display="none";
+document.getElementById("dmBtn").textContent="📹 카메라 시작";document.getElementById("dmBtn").className="act-btn go";
+const c=document.getElementById("camC");c.getContext("2d").clearRect(0,0,c.width,c.height);dets=[];}
+
+async function runDet(){if(!running)return;const video=document.getElementById("camV");
+if(video.readyState<2){setTimeout(runDet,200);return;}
+const t0=performance.now(),off=document.getElementById("offscreen");
+off.width=video.videoWidth;off.height=video.videoHeight;off.getContext("2d").drawImage(video,0,0);
+let nd=[];try{const preds=await cocoM.detect(off,20,.25);
+preds.forEach(p=>{if(p.score<.25)return;const[x,y,w,h]=p.bbox;
+const fc=document.createElement("canvas");fc.width=Math.max(4,Math.round(w));fc.height=Math.max(4,Math.round(h));
+fc.getContext("2d").drawImage(video,x,y,w,h,0,0,fc.width,fc.height);const feat=exFeat(fc);
+let matched=null,bestSc=0;entries.forEach(e=>{if(e.label!==p.class)return;const sc=mScore(feat,e.features);if(sc>bestSc&&sc>=MATCH_TH){bestSc=sc;matched=e;}});
+nd.push({cls:p.class,box:{x,y,w,h},score:p.score,feat,matched,thumb:fc.toDataURL("image/jpeg",.6)});});}catch(e){dbg("err:"+e.message);}
+const ms=Math.round(performance.now()-t0);dets=nd;
+const canvas=document.getElementById("camC");canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);
+dets.forEach(d=>{const col=d.matched?"#00D4AA":"#FFB800";ctx.strokeStyle=col;ctx.lineWidth=3;ctx.strokeRect(d.box.x,d.box.y,d.box.w,d.box.h);
+const txt=d.matched?d.matched.name:ko(d.cls);ctx.font="bold 13px 'Noto Sans KR',sans-serif";const tw=ctx.measureText(txt).width;
+ctx.fillStyle=col;ctx.fillRect(d.box.x,d.box.y-22,tw+10,22);ctx.fillStyle="#000";ctx.textAlign="left";ctx.textBaseline="top";ctx.fillText(txt,d.box.x+5,d.box.y-19);});
+document.getElementById("camStatT").textContent=dets.length+"개 · "+ms+"ms";
+const matched=dets.filter(d=>d.matched);
+if(matched.length){document.getElementById("camMatch").style.display="block";
+document.getElementById("camMatch").textContent="👋 "+matched.map(d=>d.matched.name).join(", ");
+const now=Date.now(),names=matched.map(d=>d.matched.name).join(", ");
+if(lastSp.n!==names||now-lastSp.t>5000){lastSp={n:names,t:now};speak(names);}}
+else document.getElementById("camMatch").style.display="none";
+if(running)setTimeout(runDet,200);}
+
+/* Tap box */
+document.getElementById("camTap").addEventListener("click",function(e){
+if(!dets.length||!running)return;const rect=this.getBoundingClientRect();
+const v=document.getElementById("camV");if(!v.videoWidth)return;
+const tx=(e.clientX-rect.left)/rect.width*v.videoWidth,ty=(e.clientY-rect.top)/rect.height*v.videoHeight;
+let best=null,bestD=Infinity;
+dets.forEach(d=>{if(tx>=d.box.x&&tx<=d.box.x+d.box.w&&ty>=d.box.y&&ty<=d.box.y+d.box.h){const dist=Math.hypot(tx-d.box.x-d.box.w/2,ty-d.box.y-d.box.h/2);if(dist<bestD){bestD=dist;best=d;}}});
+if(!best)dets.forEach(d=>{const dist=Math.hypot(tx-d.box.x-d.box.w/2,ty-d.box.y-d.box.h/2);if(dist<bestD){bestD=dist;best=d;}});
+if(best)openReg(best);});
+
+/* Register */
+function openReg(det){capData=det;editIdx=-1;show("reg");
+document.getElementById("rImg").src=det.thumb;document.getElementById("rLabel").textContent=ko(det.cls);
+document.getElementById("rSub").textContent="신뢰도: "+Math.round(det.score*100)+"%";
+document.getElementById("rName").value="";document.getElementById("rDel").style.display="none";
+document.getElementById("rSave").style.opacity=".4";
+const ai=document.getElementById("rAi");
+if(apiKey){ai.style.display="block";ai.innerHTML='<span class="spinner"></span>Gemini 분석 중...';
+gemini([imgPart(det.thumb),{text:"이 사물의 색상, 브랜드(있다면), 크기, 특징을 한국어 1~2문장으로 간결히 설명해. 예: 빨간색 삼성 리모컨, 중간 크기"}])
+.then(r=>{if(r.error)ai.textContent="⚠️ "+r.error;else{ai.textContent="🤖 "+r.text;capData.aiDesc=r.text;}});}
+else ai.style.display="none";}
+
+function editEntry(i){editIdx=i;const e=entries[i];capData={cls:e.label,feat:e.features,thumb:e.thumb,aiDesc:e.aiDesc};
+show("reg");document.getElementById("rImg").src=e.thumb||"";document.getElementById("rLabel").textContent=e.name;
+document.getElementById("rSub").textContent=ko(e.label);document.getElementById("rName").value=e.name;
+document.getElementById("rDel").style.display="block";document.getElementById("rSave").style.opacity="1";
+const ai=document.getElementById("rAi");ai.style.display=e.aiDesc?"block":"none";if(e.aiDesc)ai.textContent="🤖 "+e.aiDesc;}
+
+function updSave(){document.getElementById("rSave").style.opacity=document.getElementById("rName").value.trim()?"1":".4";}
+function cancelReg(){show("detectMode");}
+function delEntry(){if(editIdx>=0){entries.splice(editIdx,1);svE();toast("삭제 완료");speak("삭제 완료");show("detectMode");renderList();}}
+function saveReg(){const name=document.getElementById("rName").value.trim();if(!name||!capData)return;
+if(editIdx>=0){entries[editIdx].name=name;if(capData.aiDesc)entries[editIdx].aiDesc=capData.aiDesc;}
+else{if(entries.length>=MAX_E){toast("최대 "+MAX_E+"개!");return;}
+entries.push({name,label:capData.cls,features:capData.feat,thumb:capData.thumb,aiDesc:capData.aiDesc||""});}
+svE();toast('✓ "'+name+'" 등록!');speak(name+" 등록 완료!");show("detectMode");renderList();}
+
+/* 365 Guard */
+function openGM(){show("guardMode");updGUI();}
+function updGUI(){if(guardImg){document.getElementById("gStat").textContent="✅ 외출 전 사진 저장됨. '귀가 후 비교' 버튼을 누르세요.";
+document.getElementById("gSaved").style.display="block";document.getElementById("gSavedImg").src=guardImg;}
+else{document.getElementById("gStat").textContent="\"외출 전 촬영\"으로 시작하세요.";document.getElementById("gSaved").style.display="none";}}
+
+async function startGCam(){if(gStream)return gStream;
+try{gStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:640},height:{ideal:480}},audio:false});
+const v=document.getElementById("gV");v.srcObject=gStream;await v.play();document.getElementById("gCamBox").style.display="block";return gStream;
+}catch(e){toast("카메라 실패");return null;}}
+function stopGCam(){if(gStream){gStream.getTracks().forEach(t=>t.stop());gStream=null;}document.getElementById("gCamBox").style.display="none";}
+function captureG(){const v=document.getElementById("gV");if(!v||v.readyState<2)return null;
+const c=document.createElement("canvas");c.width=v.videoWidth;c.height=v.videoHeight;c.getContext("2d").drawImage(v,0,0);
+return c.toDataURL("image/jpeg",.85);}
+
+async function gSave(){const s=await startGCam();if(!s)return;
+toast("3초 후 촬영...");speak("3초 후 촬영합니다.");
+setTimeout(async()=>{const raw=captureG();if(!raw){toast("촬영 실패");return;}
+guardImg=await resizeImg(raw,1024,.8);svG();stopGCam();updGUI();toast("✅ 외출 전 사진 저장!");speak("외출 전 사진 저장 완료!");},3000);}
+
+async function gCompare(){if(!guardImg){toast("먼저 '외출 전 촬영'을 하세요");speak("먼저 외출 전 촬영을 해주세요");return;}
+const s=await startGCam();if(!s)return;
+toast("3초 후 촬영...");speak("3초 후 귀가 사진을 촬영합니다.");
+setTimeout(async()=>{const raw=captureG();if(!raw){toast("촬영 실패");return;}
+const afterImg=await resizeImg(raw,1024,.8);stopGCam();
+const log=document.getElementById("gLog");log.style.display="block";log.innerHTML='<span class="spinner"></span>Gemini AI 비교 분석 중...';
+if(!apiKey){log.textContent="⚠️ API 키가 없어 비교할 수 없습니다.";speak("API 키가 필요합니다.");return;}
+const result=await gemini([imgPart(guardImg),imgPart(afterImg),
+{text:"첫 번째 사진은 외출 전, 두 번째 사진은 귀가 후입니다. 두 사진을 비교해서 사물의 변화, 없어진 것, 추가된 것, 위치 변경을 한국어로 구체적으로 설명하세요. 변화 없으면 '변화 없음'이라 하세요. 시력 장애인에게 읽어줄 내용이니 명확하게 쓰세요."}]);
+if(result.error){log.textContent="❌ "+result.error;speak("분석 실패");}
+else{log.textContent="🔍 분석 결과:\n\n"+result.text;speak(result.text);}},3000);}
+
+function gDelete(){guardImg=null;svG();updGUI();toast("삭제 완료");document.getElementById("gLog").style.display="none";}
+</script>
+</body></html>
