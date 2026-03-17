@@ -298,30 +298,39 @@ let capData=null,editIdx=-1,lastSp={n:"",t:0},apiUsed=0,apiDate="";
 function dbg(m){document.getElementById("dbg").textContent="v19: "+m;}
 function toast(m){const e=document.getElementById("toast");e.textContent=m;e.style.display="block";setTimeout(()=>e.style.display="none",2800);}
 function show(id){document.querySelectorAll(".scr").forEach(s=>s.classList.remove("on"));document.getElementById(id).classList.add("on");}
-/* TTS - mobile optimized */
-let ttsReady=false,ttsVoice=null;
+/* TTS - Android Chrome fixed */
+let ttsUnlocked=false,ttsVoice=null,ttsTimer=null;
 function initTTS(){
-  if(!window.speechSynthesis)return;
-  function findKo(){const v=speechSynthesis.getVoices();ttsVoice=v.find(x=>x.lang.startsWith("ko"))||v.find(x=>x.lang.includes("KR"))||null;
-  if(ttsVoice)dbg("TTS:"+ttsVoice.name);ttsReady=true;}
-  speechSynthesis.onvoiceschanged=findKo;findKo();
-  // Unlock TTS on first touch
-  document.addEventListener("click",function unlock(){
-    const u=new SpeechSynthesisUtterance("");u.volume=0;speechSynthesis.speak(u);
-    document.removeEventListener("click",unlock);dbg("TTS unlocked");},{once:true});
+  if(!window.speechSynthesis){dbg("TTS: not supported");return;}
+  function findKo(){const v=speechSynthesis.getVoices();
+    ttsVoice=v.find(x=>x.lang==="ko-KR")||v.find(x=>x.lang.startsWith("ko"))||v.find(x=>x.lang.includes("KR"))||null;
+    if(ttsVoice)dbg("TTS voice:"+ttsVoice.name);else dbg("TTS: no ko voice, using default");}
+  if(speechSynthesis.onvoiceschanged!==undefined)speechSynthesis.onvoiceschanged=findKo;
+  setTimeout(findKo,100);setTimeout(findKo,500);setTimeout(findKo,1500);
+  // Unlock on first user gesture
+  const unlockFn=function(){if(ttsUnlocked)return;ttsUnlocked=true;
+    const u=new SpeechSynthesisUtterance(".");u.lang="ko-KR";u.volume=0.01;u.rate=2;
+    speechSynthesis.speak(u);dbg("TTS unlocked");};
+  document.addEventListener("touchstart",unlockFn,{once:true});
+  document.addEventListener("click",unlockFn,{once:true});
 }
-function speak(t){if(!window.speechSynthesis||!t)return;
-  speechSynthesis.cancel();
-  // Split long text into chunks (max 200 chars)
-  const chunks=[];let txt=t;
-  while(txt.length>0){let end=Math.min(200,txt.length);
-    if(end<txt.length){const sp=txt.lastIndexOf(".",end);const sp2=txt.lastIndexOf(",",end);const sp3=txt.lastIndexOf(" ",end);
-    end=Math.max(sp,sp2,sp3);if(end<=0)end=200;}
-    chunks.push(txt.slice(0,end).trim());txt=txt.slice(end).trim();}
-  setTimeout(()=>{chunks.forEach((c,i)=>{const u=new SpeechSynthesisUtterance(c);
+function speak(t){
+  if(!window.speechSynthesis||!t){dbg("TTS skip: "+(t?"no synth":"empty"));return;}
+  dbg("TTS say: "+t.slice(0,30)+"...");
+  // Stop previous
+  speechSynthesis.cancel();if(ttsTimer)clearInterval(ttsTimer);
+  // Chrome Android bug: need delay after cancel
+  setTimeout(function(){
+    const u=new SpeechSynthesisUtterance(t.slice(0,500));
     u.lang="ko-KR";u.rate=1;u.pitch=1;u.volume=1;
     if(ttsVoice)u.voice=ttsVoice;
-    speechSynthesis.speak(u);});},100);
+    u.onerror=function(e){dbg("TTS err:"+e.error);};
+    u.onend=function(){if(ttsTimer)clearInterval(ttsTimer);ttsTimer=null;dbg("TTS done");};
+    speechSynthesis.speak(u);
+    // Chrome bug: speechSynthesis stops after ~15sec, resume trick
+    ttsTimer=setInterval(function(){if(!speechSynthesis.speaking){clearInterval(ttsTimer);ttsTimer=null;}
+      else speechSynthesis.resume();},5000);
+  },250);
 }
 initTTS();
 
@@ -413,7 +422,12 @@ cocoM=await window.cocoSsd.load({base:"mobilenet_v2"});dbg("COCO OK (mobilenet_v
 const tc=document.createElement("canvas");tc.width=300;tc.height=300;tc.getContext("2d").fillRect(0,0,300,300);await cocoM.detect(tc);
 fill.style.width="100%";msg.textContent="✅ 준비 완료!";
 document.getElementById("apiSt").textContent=apiKey?"🔑 Gemini 연결":"⚠️ Gemini 미연결";
-updCnt();speak("나래365 기억해줘, 준비 완료!");setTimeout(()=>show("home"),600);
+updCnt();
+// Startup voice announcement
+var msg2="나래365 기억해줘, 준비 완료! ";
+if(entries.length>0){msg2+=entries.map(e=>e.name).join(", ")+" 총 "+entries.length+"개 등록되어 있습니다. 테스트해주세요!";}
+else{msg2+="등록된 사물이 없습니다. 사물을 등록해보세요!";}
+setTimeout(()=>speak(msg2),800);setTimeout(()=>show("home"),600);
 }catch(e){dbg("에러:"+e.message);msg.textContent="❌ "+e.message;retry.style.display="block";}}
 
 /* Detect Mode */
